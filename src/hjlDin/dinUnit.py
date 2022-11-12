@@ -127,8 +127,8 @@ class dinUnit(Layer):
 
     def call(self, inputs, mask=None, training=None,**kwargs):
         query, keys = inputs
-        # tf.print(query)
-        # tf.print(keys)
+        print(query)
+        print(keys)
         key_masks = tf.expand_dims(mask[-1], axis=1)
 
 

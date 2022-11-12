@@ -609,6 +609,8 @@ class DIN(ModelBuilderBase):
         keys_emb = self.concat_func(keys_emb_list, mask=True)
         deep_input_emb = self.concat_func(dnn_input_emb_list)
         query_emb = self.concat_func(query_emb_list, mask=True)
+        print(f'deep_input_emb:{deep_input_emb}')
+        print(f'hist:{hist}')
         hist = dinUnit((80, 40), 'dice',weight_normalization=False, supports_masking=True)([
             query_emb, keys_emb])
         deep_input_emb = tf.keras.layers.Concatenate()([deep_input_emb, hist])
@@ -648,7 +650,7 @@ if __name__=="__main__":
     dinModel = DIN("path1","path2")
     buildModel = dinModel.build()
     train = True
-    train = False
+    # train = False
     if train:
         buildModel.compile('adam', 'binary_crossentropy',
                       metrics=['binary_crossentropy'])
