@@ -7,11 +7,10 @@ from tensorflow.keras.layers.experimental.preprocessing import Normalization
 from tfDataSet import din_fc_parser
 
 """
-python3.6
-TensorFlow：2.3.0
-
+python3.7
+TensorFlow：2.4.0
+测试中
 """
-tf.compat.v1.enable_eager_execution()
 
 
 class DinFc():
@@ -44,9 +43,9 @@ class DinFc():
             shape = (1,) if size == 1 else (size,)
             input_ = keras.layers.Input(name=name, shape=shape, dtype=dtype)
             # normalizer_fn = norm(mean, stddev) if normalize else None
-            # normalization_layer = Normalization(mean=2.0, variance=3.0)
-            feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)
-            # feat_col = normalization_layer(input_)
+            normalization_layer = Normalization(mean=2.0, variance=3.0,name=name)
+            # feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)
+            feat_col = normalization_layer(input_)
 
             if use:
                 num_fcs.append(feat_col)
@@ -57,11 +56,11 @@ class DinFc():
                 num_cat_inputs[name] = input_
                 num_fea_no_use_names.append(name)
 
-        user_emb_fc = [x for x in num_fcs if x.name == 'userEmbedding'][0]
+        user_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'userEmbedding'][0]
         user_emb_in = {user_emb_fc.name: num_inputs[user_emb_fc.name]}
         user_emb = keras.layers.DenseFeatures(user_emb_fc)(user_emb_in)
 
-        item_emb_fc = [x for x in num_fcs if x.name == 'titleEditedVectorBert'][0]
+        item_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'titleEditedVectorBert'][0]
         item_emb_in = {item_emb_fc.name: num_inputs[item_emb_fc.name]}
         item_emb = keras.layers.DenseFeatures(item_emb_fc)(item_emb_in)
 
@@ -217,10 +216,10 @@ class DinFc():
 
 
 def trainMain():
-    x = din_fc_parser.data_gen(["F:\\data\\tensorflow\\v23_2_1\\date=20221116\\train\\part-r-00098",
-                                "F:\\data\\tensorflow\\v23_2_1\\date=20221116\\train\\part-r-00099"], 4)
-    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\val\\part-r-00000", 4)
-    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\test\\part-r-00003", 4)
+    x = din_fc_parser.data_gen(["F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00000",
+                                "F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00001"], 4)
+    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\val\\part-r-00002", 4)
+    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\test\\part-r-00004", 4)
     test_op = tf.compat.v1.data.make_one_shot_iterator(x)
     one_element = test_op.get_next()
     print(one_element)

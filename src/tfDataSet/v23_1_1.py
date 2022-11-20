@@ -1,10 +1,10 @@
 import tensorflow as tf
-from parseFeatSchema import v14_5_8parserTsv
-
+from parseFeatSchema import v23_1_1parserTsv
 
 def getFeatParserInfo():
-    feat_parser = v14_5_8parserTsv.FeatParser(rp=r'E:\gitWork\tfGatling\src\tfDataSet\v14_5_8_feat_br.tsv',
-                                              mean_stddev_path=r'E:\gitWork\tfGatling\src\tfDataSet\v14_5_8_mean_stddev.tsv')
+
+    feat_parser = v23_1_1parserTsv.FeatParser(rp=r'E:\gitWork\tfGatling\src\tfDataSet\v23_1_1_feat_br.tsv',
+                                       mean_stddev_path=None)
     print('num feat')
     print('\n'.join(str(x) for x in feat_parser.get_num_feat()))
     print('cat feat')
@@ -13,32 +13,14 @@ def getFeatParserInfo():
     num_feat_tsv = feat_parser.get_num_feat()
     cat_feat_tsv = feat_parser.get_cat_feat()
 
-    feat_props = [(featName, featSize, featDtype, featDefaultV) for _, featName, featSize, *_, featDefaultV, featDtype
-                  in
+    feat_props = [(featName, featSize, featDtype, featDefaultV) for _, featName, featSize, *_, featDefaultV, featDtype in
                   num_feat_tsv + cat_feat_tsv]
-    return feat_props, num_feat_tsv, cat_feat_tsv
-
-
+    return feat_props,num_feat_tsv,cat_feat_tsv
 pass
 
-feat_props, _, _ = getFeatParserInfo()
-
-
+feat_props,_,_ = getFeatParserInfo()
 def tf_record_parser():
-    # features = {
-    #     "weekOfMonth": tf.io.FixedLenFeature(dtype=tf.int64,
-    #                                          shape=(1,),
-    #                                          default_value=0),
-    #     "cityType": tf.io.FixedLenFeature(dtype=tf.int64,
-    #                                       shape=(1,),
-    #                                       default_value=0),
-    #     "lastVersion": tf.io.FixedLenFeature(dtype=tf.int64,
-    #                                          shape=(1,),
-    #                                          default_value=0),
-    #     "label": tf.io.FixedLenFeature(dtype=tf.float32,
-    #                                    shape=(1,),
-    #                                    default_value=0.0)
-    # }
+
     features = {name: tf.io.FixedLenFeature(dtype=dtype,
                                             shape=(1,) if size == 1 else (size,),
                                             default_value=default if size == 1 else [default] * size)
@@ -48,17 +30,11 @@ def tf_record_parser():
     # tf records parser
     def parser(rec):
         parsed = tf.io.parse_example(rec, features)
-        # feats = {k: v for k, v in parsed.items() if k != 'label' and k != 'dayDecayWeight'}
-        sampleW = parsed['dayDecayWeight']
-        feats = {k: v for k, v in parsed.items() if k != 'label'}
-        label = parsed['label']
-        # sampleW = tf.compat.v2.squeeze(parsed['dayDecayWeight'])
-        # sampleW.set_shape([None])
-        # return feats, label, weightedInfo
-        # parsed = tf.io.parse_example(rec, features)
-        # feats = {k: v for k, v in parsed.items() if k != 'label'}
-        # label = parsed['label']
-        return feats, label, sampleW
+        feats = {k: v for k, v in parsed.items() if k != "label" and k != 'dayDecayWeight'}
+        label = parsed["label"]
+        weightedInfo = tf.compat.v2.squeeze(parsed['dayDecayWeight'])
+        weightedInfo.set_shape([None])
+        return feats, label, weightedInfo
 
     return parser
 

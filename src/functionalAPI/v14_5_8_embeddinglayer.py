@@ -81,8 +81,10 @@ class testEmb():
         group_embedding_dict = defaultdict(list)
         for _, featName, _, featBucket, *_, featDefaultV, featDtype in self.cat_feat:
             feat_lookup_idx = sparse_input_dict[featName]
+            # group_embedding_dict['default_group'].append(
+            #     tf.squeeze(sparse_embedding_dict[featName](feat_lookup_idx), axis=1))
             group_embedding_dict['default_group'].append(
-                tf.squeeze(sparse_embedding_dict[featName](feat_lookup_idx), axis=1))
+                tf.keras.layers.Flatten()(sparse_embedding_dict[featName](feat_lookup_idx)))
         # user_lookup_idx = sparse_input_dict["weekOfMonth"]
         # group_embedding_dict['default_group'].append(sparse_embedding_dict["weekOfMonth"](user_lookup_idx))
         #
@@ -114,6 +116,18 @@ class testEmb():
         # dense_input_list.append(features["pay_score"])
         return dense_input_list
 
+    def get_dense_input_v2(self, features):
+        dense_input_list = []
+        for _, featName, _, featBucket, *_, featDefaultV, featDtype in self.num_feat:
+            if featName == 'label' or featName == 'dayDecayWeight':
+                continue
+            dense_input_list.append(features[featName])
+        cosine = keras.layers.Dot(axes=1, normalize=True)(
+            [features['userEmbedding'], features['titleEditedVectorBert']])
+        dense_value_list = tf.keras.layers.Concatenate(axis=1)(dense_input_list)
+        num_dense_feats = keras.layers.Concatenate()([dense_value_list, cosine])
+        return num_dense_feats
+
     def build(self):
         input_features = self.buildInput()
         inputs_list = list(input_features.values())
@@ -122,11 +136,12 @@ class testEmb():
         dnn_input_emb_list = self.dnn_input_embedding_lookup(embDic, input_features)
         input_dnn_layer = self.concat_func(dnn_input_emb_list)
         # squeeze：python3.6,tf2.1.0 下有问题: ValueError: Could not find matching function to call loaded from the SavedModel
-        # 改为 python3.8，tf2.2.0就可以
+        # 改为 python3.8，tf2.3.0就可以
         # input_dnn_layer = tf.compat.v2.squeeze(deep_input_emb,axis=1)
 
-        dense_value_list = self.get_dense_input(input_features)
-        dense_value_list = tf.keras.layers.Concatenate(axis=1)(dense_value_list)
+        # dense_value_list = self.get_dense_input(input_features)
+        dense_value_list = self.get_dense_input_v2(input_features)
+        # dense_value_list = tf.keras.layers.Concatenate(axis=1)(dense_value_list)
         lr_input_layer = tf.keras.layers.Concatenate(axis=1)([dense_value_list, input_dnn_layer])
         lr_input_layer = tf.keras.layers.Dense(units=1, name="LinearLayer")(lr_input_layer)
 

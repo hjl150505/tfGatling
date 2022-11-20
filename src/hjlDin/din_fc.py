@@ -27,6 +27,7 @@ class DinFc():
 
     def build_num_inputs(self):
         num_inputs = {}
+        num_inputs_list = []
         num_cat_inputs = {}
         num_fcs = []
         num_cat_fcs = []
@@ -46,29 +47,35 @@ class DinFc():
             input_ = keras.layers.Input(name=name, shape=shape, dtype=dtype)
             # normalizer_fn = norm(mean, stddev) if normalize else None
             # normalization_layer = Normalization(mean=2.0, variance=3.0)
-            feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)
+            # feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)   fc这个也可以使用
             # feat_col = normalization_layer(input_)
 
             if use:
-                num_fcs.append(feat_col)
+                # num_fcs.append(feat_col)
                 num_inputs[name] = input_
                 num_fea_use_names.append(name)
+                num_inputs_list.append(input_)
             else:
-                num_cat_fcs.append(feat_col)
+                # num_cat_fcs.append(feat_col)
                 num_cat_inputs[name] = input_
                 num_fea_no_use_names.append(name)
 
-        user_emb_fc = [x for x in num_fcs if x.name == 'userEmbedding'][0]
-        user_emb_in = {user_emb_fc.name: num_inputs[user_emb_fc.name]}
-        user_emb = keras.layers.DenseFeatures(user_emb_fc)(user_emb_in)
+        # user_emb_fc = [x for x in num_fcs if x.name == 'userEmbedding'][0]
+        # user_emb_in = {user_emb_fc.name: num_inputs[user_emb_fc.name]}
+        # user_emb = keras.layers.DenseFeatures(user_emb_fc)(user_emb_in)
+        #
+        # item_emb_fc = [x for x in num_fcs if x.name == 'titleEditedVectorBert'][0]
+        # item_emb_in = {item_emb_fc.name: num_inputs[item_emb_fc.name]}
+        # item_emb = keras.layers.DenseFeatures(item_emb_fc)(item_emb_in)
+        #
+        # cosine = keras.layers.Dot(axes=1, normalize=True)([user_emb, item_emb])
+        # num_dense_feats = keras.layers.DenseFeatures(num_fcs)(num_inputs)
 
-        item_emb_fc = [x for x in num_fcs if x.name == 'titleEditedVectorBert'][0]
-        item_emb_in = {item_emb_fc.name: num_inputs[item_emb_fc.name]}
-        item_emb = keras.layers.DenseFeatures(item_emb_fc)(item_emb_in)
-
-        cosine = keras.layers.Dot(axes=1, normalize=True)([user_emb, item_emb])
-        num_dense_feats = keras.layers.DenseFeatures(num_fcs)(num_inputs)
-        num_dense_feats = keras.layers.Concatenate()([num_dense_feats, cosine])
+        # num_dense_feats = keras.layers.Concatenate()([num_dense_feats, cosine])
+        cosine = keras.layers.Dot(axes=1, normalize=True)(
+            [num_inputs['userEmbedding'], num_inputs['titleEditedVectorBert']])
+        dense_value_list = tf.keras.layers.Concatenate(axis=1)(num_inputs_list)
+        num_dense_feats = keras.layers.Concatenate()([dense_value_list, cosine])
         print("连续特征-使用=>", num_fea_use_names)
         print("连续特征-不用=>", num_fea_no_use_names)
         return num_dense_feats, num_inputs
@@ -83,24 +90,27 @@ class DinFc():
             if dtype != tf.string or name == 'userId':
                 continue
             cat_fea_names.append(name)
-            shape = (1,) if size == 1 else (1, size)
+            shape = (1,) if size == 1 else (size,1)
             input_ = keras.layers.Input(name=name, shape=shape, dtype=dtype)
             feat_col = fc.categorical_column_with_hash_bucket(key=name, hash_bucket_size=buckets)
             if size > 1:
                 feat_col = fc.weighted_categorical_column(categorical_column=feat_col, weight_feature_key=weight_fc)
             dimension = 10
             cat_fc = fc.embedding_column(categorical_column=feat_col, dimension=dimension, combiner='sum')
-            cat_fcs.append(keras.layers.DenseFeatures(cat_fc)({name: input_}))
+
             cat_inputs[name] = input_
             cat_fcs_ident.append(cat_fc)
             if name == "category" or name == "subCategory":
                 queryEmb[name] = keras.layers.DenseFeatures(cat_fc)({name: input_})
+            else:
+                cat_fcs.append(keras.layers.DenseFeatures(cat_fc)({name: input_}))
 
         print("分类特征-使用=>", cat_fea_names)
         cat_inputs = {**cat_inputs}
-        cat_dense_feats_emb = keras.layers.DenseFeatures(cat_fcs_ident)(cat_inputs)
-        cat_dense_feats = tf.stack(cat_fcs, axis=1)
-
+        # cat_dense_feats_emb = keras.layers.DenseFeatures(cat_fcs_ident)(cat_inputs)
+        # cat_dense_feats = tf.stack(cat_fcs, axis=1)
+        cat_dense_feats = tf.stack(cat_fcs,axis=1)
+        cat_dense_feats_emb = keras.layers.Concatenate()(cat_fcs)
         return cat_dense_feats, cat_dense_feats_emb, cat_inputs, queryEmb
 
     def build_seq_input(self, keys2queryNameDic, catFeat):
@@ -130,14 +140,15 @@ class DinFc():
         :param keys_length: [B, 1]
         :return: attention_weighted embedding: [B, H]
         """
-        query_shape = query.shape.as_list()
+        keys_length = tf.expand_dims(keys_length, axis=-1)
+        # query_shape = query.shape.as_list()
         keys_shape = keys.shape.as_list()
-        keys_length_shape = keys_length.shape.as_list()
-        if len(keys_length_shape) < 2:
-            keys_length = tf.expand_dims(keys_length, axis=-1)
-        print("keys shape", keys_shape, ", query shape", query_shape, ", keys_length", keys_length.shape)
-        assert query_shape[-1] == keys_shape[-1], "keys embedding size should be equal to query embedding size"
-        assert len(keys_shape) == 3, "keys bad shape"
+        # keys_length_shape = keys_length.shape.as_list()
+        # if len(keys_length_shape) < 2:
+        #     keys_length = tf.expand_dims(keys_length, axis=-1)
+        # print("keys shape", keys_shape, ", query shape", query_shape, ", keys_length", keys_length.shape)
+        # assert query_shape[-1] == keys_shape[-1], "keys embedding size should be equal to query embedding size"
+        # assert len(keys_shape) == 3, "keys bad shape"
 
         query = tf.expand_dims(query, -2)  # B*1*H
         T = tf.shape(keys)[1]
@@ -193,8 +204,9 @@ class DinFc():
                                              seq_keys_feat_len[attention_key],
                                              [32, 16],
                                              False)
-            attention_o_norm = keras.layers.BatchNormalization()(attention_o)
-            attention_outs.append(attention_o_norm)
+            # attention_o_norm = keras.layers.BatchNormalization()(attention_o)
+            # attention_outs.append(attention_o_norm)
+            attention_outs.append(attention_o)
         print("attention out shape:", [i.shape for i in attention_outs])
         attention_out_concat = tf.keras.layers.Concatenate(axis=1)(attention_outs)
         dnn_dense_feats = tf.keras.layers.Concatenate(axis=1)([cat_dense_feats_ident, attention_out_concat])
