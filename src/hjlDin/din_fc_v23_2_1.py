@@ -218,26 +218,28 @@ class DinFc():
 def trainMain():
     x = din_fc_parser.data_gen(["F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00000",
                                 "F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00001"], 4)
-    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\val\\part-r-00002", 4)
-    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221116\\test\\part-r-00004", 4)
-    test_op = tf.compat.v1.data.make_one_shot_iterator(x)
+    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221115\\val\\part-r-00002", 4)
+    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221115\\test\\part-r-00004", 4)
+    test_op = tf.compat.v1.data.make_one_shot_iterator(t)
     one_element = test_op.get_next()
     print(one_element)
     print("one_element=>", one_element)
-    embModel = DinFc()
-    model, loss = embModel.build()
-    model.summary()
-    model.output_names[0] = 'predict_score'
-    optimizer = keras.optimizers.Adam()
-    metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
-               keras.metrics.Recall(), keras.metrics.AUC()]
-    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
-    history = model.fit(x,
-                        validation_data=v,
-                        epochs=2,
-                        steps_per_epoch=1000)
-    model.save("din_fc_model")
-    loadModel = keras.models.load_model("din_fc_model")
+    # embModel = DinFc()
+    # model, loss = embModel.build()
+    # model.summary()
+    # model.output_names[0] = 'predict_score'
+    # optimizer = keras.optimizers.Adam()
+    # metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
+    #            keras.metrics.Recall(), keras.metrics.AUC()]
+    # model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
+    # history = model.fit(x,
+    #                     validation_data=v,
+    #                     epochs=2,
+    #                     steps_per_epoch=1000)
+    # model.save("din_fc_model")
+    # loadModel = keras.models.load_model("din_fc_model")
+    # 测试线上训练的模型（测试成功，可以预测）：
+    loadModel = keras.models.load_model("F:\\data\\tensorflow\\v23_2_1\\modelOnline\\saved_model\\br\hjlModels\\model_v23_2_1\\20221117")
     preRs = loadModel.predict(t)
     print(preRs)
 
