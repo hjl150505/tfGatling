@@ -30,20 +30,21 @@ from tensorflow.python.client import device_lib
 print(device_lib.list_local_devices())
 
 
-class YourOwnHook(tf.train.SessionRunHook):
+class YourOwnHook(tf.estimator.SessionRunHook):
     def __init__(self):
         np.set_printoptions(suppress=True)
         np.set_printoptions(linewidth=400)
 
     def before_run(self, run_context):
         """返回SessionRunArgs和session run一起跑"""
-        v1 = tf.get_collection('logis')
-        prob = tf.get_collection('prob')
-        return tf.train.SessionRunArgs(fetches=[v1, prob])
+        v1 = tf.compat.v1.get_collection('logis')
+        prob = tf.compat.v1.get_collection('prob')
+        return tf.estimator.SessionRunArgs(fetches=[v1, prob])
 
     def after_run(self, run_context, run_values):
         v1, batch_labels = run_values.results
-        logger.info("logis value:{}".format(v1))
+        # logger.info("logis value:{}".format(v1))
+        print(f"logis value: %s".format(v1))
         print("prob :", batch_labels)
 
 
@@ -81,7 +82,7 @@ def model_fn(features, labels, mode):
 
     if mode != tf.estimator.ModeKeys.PREDICT:
         # ------拆分标签------
-        labels_click = tf.reshape(labels, shape=[-1, ])
+        labels_click = tf.reshape(labels, shape=[-1, 1])
         labels_click = tf.cast(labels_click, dtype=tf.float32)
 
     # 预测结果导出格式设置
@@ -115,12 +116,13 @@ def model_fn(features, labels, mode):
         loss = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=y_click_prediction)
         )
+        tf.print(loss)
         ownhook = YourOwnHook()
         tf.add_to_collection('logis', labels)
         tf.add_to_collection('prob', y_click_prediction)
-        optimizer = tf.train.AdamOptimizer(learning_rate=0.0001, beta1=0.9, beta2=0.999, epsilon=1e-6)
+        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=0.0001, beta1=0.9, beta2=0.999, epsilon=1e-6)
 
-        train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+        train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,

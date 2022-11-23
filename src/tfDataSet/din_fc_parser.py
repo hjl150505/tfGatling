@@ -8,8 +8,8 @@ import tensorflow.keras.backend as K
 def getFeatParserInfo():
     # feat_parser = v14_5_7parserTsv.FeatParser(rp=r'E:\gitWork\tfGatling\src\tfDataSet\v14_5_7_feat_br.tsv',
     #                                    mean_stddev_path=r'E:\gitWork\tfGatling\src\tfDataSet\v14_5_7_mean_stddev.tsv')
-    feat_parser = din_fc_parserTsv.FeatParser(rp=r'E:\gitWork\tfGatling\src\tfDataSet\din_feat_br.tsv',
-                                              mean_stddev_path=None)
+    feat_parser = din_fc_parserTsv.FeatParser(rp=r'E:\gitWork\tfGatling\src\tfDataSet\v23_2_1_feat_br.tsv',
+                                              mean_stddev_path=r'E:\gitWork\tfGatling\src\tfDataSet\v23_2_1_mean_stddev.tsv')
     print('num feat')
     print('\n'.join(str(x) for x in feat_parser.get_num_feat()))
     print('cat feat')

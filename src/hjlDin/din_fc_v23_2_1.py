@@ -5,11 +5,15 @@ from tensorflow.python.keras.regularizers import l1_l2
 from tensorflow.keras.experimental import SequenceFeatures
 from tensorflow.keras.layers.experimental.preprocessing import Normalization
 from tfDataSet import din_fc_parser
+from tensorflow.python.keras.layers import Lambda
 
 """
-python3.7
-TensorFlow：2.4.0
-测试中
+python3.6
+TensorFlow：2.3.0
+惊天大胜利：模型中可以添加归一化操作了
+训练通过
+加载模型通过
+预测通过
 """
 
 
@@ -43,10 +47,9 @@ class DinFc():
             shape = (1,) if size == 1 else (size,)
             input_ = keras.layers.Input(name=name, shape=shape, dtype=dtype)
             # normalizer_fn = norm(mean, stddev) if normalize else None
-            normalization_layer = Normalization(mean=2.0, variance=3.0,name=name)
-            # feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)
-            feat_col = normalization_layer(input_)
 
+            # feat_col = fc.numeric_column(key=name, shape=shape, normalizer_fn=None)
+            feat_col = Lambda(norm(mean, stddev), name=name + "_lamb")(input_) if normalize else input_
             if use:
                 num_fcs.append(feat_col)
                 num_inputs[name] = input_
@@ -56,16 +59,19 @@ class DinFc():
                 num_cat_inputs[name] = input_
                 num_fea_no_use_names.append(name)
 
-        user_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'userEmbedding'][0]
-        user_emb_in = {user_emb_fc.name: num_inputs[user_emb_fc.name]}
-        user_emb = keras.layers.DenseFeatures(user_emb_fc)(user_emb_in)
+        # user_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'userEmbedding'][0]
+        # user_emb_in = {user_emb_fc.name.split('/')[0]: num_inputs[user_emb_fc.name.split('/')[0]]}
+        # user_emb = keras.layers.DenseFeatures(user_emb_fc)(user_emb_in)
+        #
+        # item_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'titleEditedVectorBert'][0]
+        # item_emb_in = {item_emb_fc.name: num_inputs[item_emb_fc.name.split('/')[0]]}
+        # item_emb = keras.layers.DenseFeatures(item_emb_fc)(item_emb_in)
 
-        item_emb_fc = [x for x in num_fcs if x.name.split('/')[0] == 'titleEditedVectorBert'][0]
-        item_emb_in = {item_emb_fc.name: num_inputs[item_emb_fc.name]}
-        item_emb = keras.layers.DenseFeatures(item_emb_fc)(item_emb_in)
-
-        cosine = keras.layers.Dot(axes=1, normalize=True)([user_emb, item_emb])
-        num_dense_feats = keras.layers.DenseFeatures(num_fcs)(num_inputs)
+        cosine = keras.layers.Dot(axes=1, normalize=True)(
+            [num_inputs['userEmbedding'], num_inputs['titleEditedVectorBert']])
+        # num_dense_feats = keras.layers.DenseFeatures(num_fcs)(num_inputs)
+        # num_dense_feats = keras.layers.Concatenate()([num_dense_feats, cosine])
+        num_dense_feats = keras.layers.Concatenate()(num_fcs)
         num_dense_feats = keras.layers.Concatenate()([num_dense_feats, cosine])
         print("连续特征-使用=>", num_fea_use_names)
         print("连续特征-不用=>", num_fea_no_use_names)
@@ -216,30 +222,30 @@ class DinFc():
 
 
 def trainMain():
-    x = din_fc_parser.data_gen(["F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00000",
-                                "F:\\data\\tensorflow\\v23_2_1\\date=20221113\\train\\part-r-00001"], 4)
-    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221115\\val\\part-r-00002", 4)
-    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221115\\test\\part-r-00004", 4)
+    x = din_fc_parser.data_gen(["F:\\data\\tensorflow\\v23_2_1\\date=20221120\\train\\part-r-00000",
+                                "F:\\data\\tensorflow\\v23_2_1\\date=20221120\\train\\part-r-00001"], 4)
+    v = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221120\\val\\part-r-00002", 4)
+    t = din_fc_parser.data_gen("F:\\data\\tensorflow\\v23_2_1\\date=20221120\\test\\part-r-00003", 4)
     test_op = tf.compat.v1.data.make_one_shot_iterator(t)
     one_element = test_op.get_next()
     print(one_element)
     print("one_element=>", one_element)
-    # embModel = DinFc()
-    # model, loss = embModel.build()
-    # model.summary()
-    # model.output_names[0] = 'predict_score'
-    # optimizer = keras.optimizers.Adam()
-    # metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
-    #            keras.metrics.Recall(), keras.metrics.AUC()]
-    # model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
-    # history = model.fit(x,
-    #                     validation_data=v,
-    #                     epochs=2,
-    #                     steps_per_epoch=1000)
-    # model.save("din_fc_model")
-    # loadModel = keras.models.load_model("din_fc_model")
+    embModel = DinFc()
+    model, loss = embModel.build()
+    model.summary()
+    model.output_names[0] = 'predict_score'
+    optimizer = keras.optimizers.Adam()
+    metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
+               keras.metrics.Recall(), keras.metrics.AUC()]
+    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
+    history = model.fit(x,
+                        validation_data=v,
+                        epochs=2,
+                        steps_per_epoch=1000)
+    model.save("din_fc_model")
+    loadModel = keras.models.load_model("din_fc_model")
     # 测试线上训练的模型（测试成功，可以预测）：
-    loadModel = keras.models.load_model("F:\\data\\tensorflow\\v23_2_1\\modelOnline\\saved_model\\br\hjlModels\\model_v23_2_1\\20221117")
+    # loadModel = keras.models.load_model("F:\\data\\tensorflow\\v23_2_1\\modelOnline\\saved_model\\br\hjlModels\\model_v23_2_1\\20221117")
     preRs = loadModel.predict(t)
     print(preRs)
 

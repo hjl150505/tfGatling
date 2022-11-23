@@ -215,6 +215,6 @@ def checkCatFcData():
 
 
 if __name__ == "__main__":
-    # trainMain()
-    checkNumFcData()
+    trainMain()
+    # checkNumFcData()
     pass
