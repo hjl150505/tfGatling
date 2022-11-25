@@ -610,7 +610,7 @@ class DIN(ModelBuilderBase):
         deep_input_emb = self.concat_func(dnn_input_emb_list)
         query_emb = self.concat_func(query_emb_list, mask=True)
         print(f'deep_input_emb:{deep_input_emb}')
-        print(f'hist:{hist}')
+        # print(f'hist:{hist}')
         hist = dinUnit((80, 40), 'dice',weight_normalization=False, supports_masking=True)([
             query_emb, keys_emb])
         deep_input_emb = tf.keras.layers.Concatenate()([deep_input_emb, hist])
@@ -659,6 +659,8 @@ if __name__=="__main__":
         print(buildModel.predict(x))
         # buildModel.save(".\\modelRsTmp")
         tf.keras.models.Model.save(buildModel,".\\modelRsTmp")
+        reloadModel = keras.models.load_model(".\\modelRsTmp")
+        print(reloadModel.predict(x))
     else:
         reloadModel = keras.models.load_model(".\\modelRsTmp")
         print(reloadModel.predict(x))
