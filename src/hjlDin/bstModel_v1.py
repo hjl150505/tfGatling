@@ -16,6 +16,7 @@ tensorflow:2.3.0
 可训练
 可保存模型
 可预测
+mask=True
 """
 
 
@@ -143,9 +144,9 @@ class Transformer(keras.layers.Layer):
                                      initializer=tf.keras.initializers.glorot_uniform(seed=self.seed))
             self.v = self.add_weight('v', shape=[self.att_embedding_size], dtype=tf.float32,
                                      initializer=tf.keras.initializers.glorot_uniform(seed=self.seed))
-        # if self.use_res:
-        #     self.W_Res = self.add_weight(name='res', shape=[embedding_size, self.att_embedding_size * self.head_num], dtype=tf.float32,
-        #                                  initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
+        if self.use_res:
+            self.W_Res = self.add_weight(name='res', shape=[embedding_size, self.att_embedding_size * self.head_num], dtype=tf.float32,
+                                         initializer=tf.keras.initializers.TruncatedNormal(seed=self.seed))
         if self.use_feed_forward:
             self.fw1 = self.add_weight('fw1', shape=[self.num_units, 4 * self.num_units], dtype=tf.float32,
                                        initializer=tf.keras.initializers.glorot_uniform(seed=self.seed))
@@ -321,7 +322,10 @@ class Transformer(keras.layers.Layer):
 
         keys_len = result.get_shape()[1]
         queries = K.repeat_elements(queryEmb, keys_len, 1)
-
+        tf.print("*" * 20)
+        tf.print(result.get_shape())
+        tf.print(queries.get_shape())
+        tf.print("*" * 20)
         att_input = tf.concat(
             [queries, result, queries - result, queries * result], axis=-1)
 

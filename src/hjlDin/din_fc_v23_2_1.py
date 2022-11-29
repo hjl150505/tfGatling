@@ -114,7 +114,7 @@ class DinFc():
         cat_query_feat = {}
         seq_fea_len_dic = {}
         for use, name, size, buckets, weight_fc, default, dtype in self.seq_feat:
-            input_ = keras.layers.Input(name=name, shape=(None,), dtype=dtype)
+            input_ = keras.layers.Input(name=name, shape=(size,), dtype=dtype)
             feat_col = fc.sequence_categorical_column_with_hash_bucket(key=name, hash_bucket_size=buckets, dtype=dtype)
             seq_emb = fc.embedding_column(categorical_column=feat_col, dimension=10)
             sequence_input = SequenceFeatures([seq_emb], trainable=True)
