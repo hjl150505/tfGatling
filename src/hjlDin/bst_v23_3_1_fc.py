@@ -139,7 +139,7 @@ class TransformerDin(keras.layers.Layer):
 
         super(TransformerDin, self).build(input_shape)
 
-    def positional_encoding(self, inputs,seq_max_len,
+    def positional_encoding(self, inputs, seq_max_len,
                             pos_embedding_trainable=True,
                             zero_pad=False,
                             scale=True,
@@ -190,8 +190,8 @@ class TransformerDin(keras.layers.Layer):
         # key_masks = tf.squeeze(key_masks, axis=1)
 
         if self.use_positional_encoding:
-            queries = self.positional_encoding(queries,self.seq_len_max)
-            keys = self.positional_encoding(queries,self.seq_len_max)
+            queries = self.positional_encoding(queries, self.seq_len_max)
+            keys = self.positional_encoding(queries, self.seq_len_max)
         #
         querys = tf.tensordot(queries, self.W_Query,
                               axes=(-1, 0))  # None T_q D*head_num
@@ -311,6 +311,7 @@ class TransformerDin(keras.layers.Layer):
         # tf.print("+"*20)
         # tf.print(outputs.get_shape())
         # tf.print("+" * 20)
+        outputs = tf.keras.layers.Flatten()(outputs)  # B*H
         ########################################## din end ###############################
 
         return outputs
@@ -421,11 +422,22 @@ class BST():
         cat_dense_feats, cat_dense_feats_ident, cat_inputs, queryEmb = self.build_cat_input_v2()
         seq_fea_len, seq_inputs, seq_keys_feat, seq_keys_feat_len, cat_query_feat = self.build_seq_input(
             self.query_keys_featName_map, queryEmb)
+
+        # lr 模型
+        lr_input_layer = tf.keras.layers.Concatenate(axis=1)([num_dense_feats, cat_dense_feats_ident])
+        lr_input_layer = tf.keras.layers.Dense(units=1, name="LinearLayer")(lr_input_layer)
+
+        # fm 模型
+        square_sum_tensor = tf.math.square(tf.math.reduce_sum(cat_dense_feats, axis=1))
+        sum_square_tensor = tf.math.reduce_sum(tf.math.square(cat_dense_feats), axis=1)
+        fm_input_layer = 0.5 * tf.math.reduce_sum(square_sum_tensor - sum_square_tensor, axis=1, keepdims=True)
+
+        # transformer+din 模型
         seq_mask_len = list(seq_keys_feat_len.values())[0]
         hist_emb = tf.keras.layers.Concatenate()(list(seq_keys_feat.values()))
         query_emb = tf.keras.layers.Concatenate()(list(queryEmb.values()))
-        if query_emb.get_shape().ndims==2:
-            query_emb = tf.expand_dims(query_emb,1)
+        if query_emb.get_shape().ndims == 2:
+            query_emb = tf.expand_dims(query_emb, 1)
         att_emb_size = hist_emb.get_shape().as_list()[-1] // self.att_head_num
 
         transformer_din_output = TransformerDin(att_embedding_size=att_emb_size, head_num=self.att_head_num,
@@ -434,16 +446,19 @@ class BST():
                                                 use_feed_forward=True, use_layer_norm=True, blinding=False, seed=2022)(
             [hist_emb, hist_emb, seq_mask_len, seq_mask_len, query_emb])
 
-        input_dnn_layer = transformer_din_output
+        dnn_dense_feats = tf.keras.layers.Concatenate(axis=1)([cat_dense_feats_ident, transformer_din_output])
+        input_dnn_layer = tf.keras.layers.Flatten()(dnn_dense_feats)
         for hidden_unit in hidden_units:
             input_dnn_layer = tf.keras.layers.Dense(units=hidden_unit, activation=tf.keras.activations.relu)(
                 input_dnn_layer)
             input_dnn_layer = tf.keras.layers.Dropout(rate=dropout)(input_dnn_layer)
-
         dnn_logits_layer = tf.keras.layers.Dense(units=1, activation=None)(input_dnn_layer)
+
+        # 模型融合
+        predict = tf.keras.layers.Add()(inputs=[lr_input_layer, fm_input_layer, dnn_logits_layer])
         predict = tf.keras.layers.Dense(units=1, activation=tf.keras.activations.sigmoid,
-                                        kernel_regularizer=l1_l2(l1=0.1, l2=0.01))(dnn_logits_layer)
-        model = tf.keras.models.Model(inputs={**cat_inputs, **seq_inputs}, outputs=[predict])
+                                        kernel_regularizer=l1_l2(l1=0.1, l2=0.01))(predict)
+        model = tf.keras.models.Model(inputs={**num_inputs, **cat_inputs, **seq_inputs}, outputs=[predict])
         # model = tf.keras.models.Model(inputs={**num_inputs}, outputs=[predict])
         loss = keras.losses.binary_crossentropy
 
@@ -460,7 +475,7 @@ if __name__ == "__main__":
     print(one_element)
     print("one_element=>", one_element)
     bst = BST()
-    model,loss = bst.build()
+    model, loss = bst.build()
     model.output_names[0] = 'predict_score'
     optimizer = keras.optimizers.Adam()
     metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
@@ -470,7 +485,7 @@ if __name__ == "__main__":
     model.summary()
     # predictRs_1 = model.predict(v)
     # print(predictRs_1)
-    print("+"*20)
+    print("+" * 20)
     history = model.fit(x,
                         validation_data=v,
                         epochs=2,
