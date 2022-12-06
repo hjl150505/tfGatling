@@ -12,7 +12,9 @@ def model_final_exporter(model_name, feature_schema):
 
 # 评估效果超过之前所有已存在的模型效果，就导出模型
 def model_best_exporter(model_name, feature_schema, assets_extra=None, exports_to_keep=1, metric_key=metric_keys.MetricKeys.LOSS, big_better=False):
-    serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(
+    # serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(
+    #     feature_schema)
+    serving_input_receiver_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(
         feature_schema)
 
     def compare(best_eval_result, current_eval_result):

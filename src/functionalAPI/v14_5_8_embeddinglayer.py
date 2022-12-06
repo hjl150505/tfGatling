@@ -177,20 +177,20 @@ if __name__ == "__main__":
     one_element = test_op.get_next()
     print(one_element)
     print("one_element=>", one_element)
-    embModel = testEmb()
-    model, loss = embModel.build()
-    model.summary()
-    model.output_names[0] = 'predict_score'
-    optimizer = keras.optimizers.Adam()
-    metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
-               keras.metrics.Recall(), keras.metrics.AUC()]
-    model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
-    history = model.fit(x,
-                        validation_data=v,
-                        epochs=2,
-                        steps_per_epoch=1000)
-    model.save("v14_5_8_model")
-
-    loadModel = keras.models.load_model("v14_5_8_model")
-    preRs = loadModel.predict(t)
-    print(preRs)
+    # embModel = testEmb()
+    # model, loss = embModel.build()
+    # model.summary()
+    # model.output_names[0] = 'predict_score'
+    # optimizer = keras.optimizers.Adam()
+    # metrics = [keras.metrics.BinaryAccuracy(), keras.metrics.Precision(),
+    #            keras.metrics.Recall(), keras.metrics.AUC()]
+    # model.compile(loss=loss, optimizer=optimizer, metrics=metrics, experimental_run_tf_function=False)
+    # history = model.fit(x,
+    #                     validation_data=v,
+    #                     epochs=2,
+    #                     steps_per_epoch=1000)
+    # model.save("v14_5_8_model")
+    #
+    # loadModel = keras.models.load_model("v14_5_8_model")
+    # preRs = loadModel.predict(t)
+    # print(preRs)

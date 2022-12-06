@@ -16,11 +16,19 @@ import glob
 # import tensorflow.keras.backend as k
 import sys
 
+"""
+tf3.6
+python=1.15
+训练成功
+保存模型成功
+spark加载模型预测tfrecord生成的example成功
+"""
+
 sys.path.append(".")
 sys.path.append("..")
 
 
-tf.logging.set_verbosity(tf.logging.INFO)
+# tf.logging.set_verbosity(tf.logging.INFO)
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "99"
@@ -112,10 +120,10 @@ def model_fn(features, labels, mode):
         #     loss += l2_reg * tf.nn.l2_loss(wgt)
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
+    loss = tf.reduce_mean(
+        tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=y_click_prediction)
+    )
     if mode == tf.estimator.ModeKeys.TRAIN:
-        loss = tf.reduce_mean(
-            tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=y_click_prediction)
-        )
         tf.print(loss)
         ownhook = YourOwnHook()
         tf.add_to_collection('logis', labels)
@@ -221,6 +229,7 @@ def fm_cross(embeddings):
     return 0.5 * tf.math.reduce_sum(square_sum_tensor - sum_square_tensor, axis=1, keepdims=True)
 
 
+
 def trainMain():
     # x = v14_5_7.data_gen(["F:\\data\\tensorflow\\v14_5_7\\date=20221111\\train\\part-r-00098",
     #                       "F:\\data\\tensorflow\\v14_5_7\\date=20221111\\train\\part-r-00099"], 4)
@@ -233,7 +242,11 @@ def trainMain():
 
 
     feature_schema = list(build_num_inputs().values())+list(build_cat_input().values())
-
+    feature_spec_test = tf.feature_column.make_parse_example_spec(feature_schema)
+    def serving_input_receiver_fn():
+        serving_input_receiver_fn_in = tf.estimator.export.build_parsing_serving_input_receiver_fn(
+            feature_schema)
+        return serving_input_receiver_fn_in
     data_dir ="F:/data/tensorflow/v14_5_7_esti"
     print(data_dir)
     tr_files = glob.glob("%s/date=20221116/train/*" % data_dir)
@@ -296,6 +309,10 @@ def trainMain():
             start_delay_secs=100, throttle_secs=100
         )
         tf.estimator.train_and_evaluate(Model, train_spec, eval_spec)
+        feature_spec = tf.feature_column.make_parse_example_spec(feature_schema)
+        Model.export_saved_model("v14_5_7_estimator", tf.estimator.export.build_parsing_serving_input_receiver_fn(
+        feature_spec))
+
     elif task_type == 'eval':
         Model.evaluate(input_fn=lambda: train_input_fn(va_files, batch_size=batch_size))
     elif task_type == 'infer':
@@ -311,6 +328,20 @@ def trainMain():
     # loadModel = keras.models.load_model("v14_5_7_model")
     # preRs = loadModel.predict(t)
     # print(preRs)
+
+
+
+def export_model(model_fn, ckp_dir, config, params, save_path):
+    """
+    model_fn: 模型函数
+    ckp_dir: 训练生成的checkpoint文件
+    config: 设置的配置
+    params: 超参
+    save_path: 模型保存地址
+    """
+    estimator = tf.estimator.Estimator(model_fn, ckp_dir, config=config, params=params)
+    estimator.export_saved_model(save_path, serving_input_receiver_fn)
+
 
 feat_props, num_feat, cat_feat = v14_5_7.getFeatParserInfo()
 def tf_record_parser():
@@ -348,6 +379,16 @@ def train_input_fn(filenames, batch_size=32):
 
     # return dataset
 
+def checkNumFcData():
+    data_dir = "F:/data/tensorflow/v14_5_7_esti"
+    print(data_dir)
+    tr_files = glob.glob("%s/date=20221116/train/*" % data_dir)
+    x = train_input_fn(tr_files,
+                   batch_size=2)
+    test_op = tf.compat.v1.data.make_one_shot_iterator(x)
+    one_element = test_op.get_next()
+    print(one_element)
+    print("one_element=>", one_element)
 
 if __name__ == "__main__":
     trainMain()
