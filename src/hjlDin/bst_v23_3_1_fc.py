@@ -62,7 +62,8 @@ class TransformerDin(keras.layers.Layer):
                  attention_type="scaled_dot_product", output_type="mean", use_bn=False, seq_len_max=10, **kwargs):
 
         assert head_num > 0, 'head_num must be a int > 0'
-        self.hidden_units = []
+        self.hidden_units = [80, 40]
+        self.l2_reg = 0.01
         self.att_embedding_size = att_embedding_size
         self.head_num = head_num
         self.num_units = att_embedding_size * head_num
@@ -115,6 +116,16 @@ class TransformerDin(keras.layers.Layer):
             shape=(1,), initializer=Zeros(), name="bias")
 
         hidden_units = [48, 80, 40]
+        self.dnn_layers = tf.keras.Sequential([
+            tf.keras.layers.Dense(80, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+            Dice(),
+            tf.keras.layers.Dropout(self.dropout_rate, seed=self.seed),
+            tf.keras.layers.Dense(40, activation='relu'),
+            tf.keras.layers.BatchNormalization(),
+            Dice(),
+            tf.keras.layers.Dropout(self.dropout_rate, seed=self.seed+1),
+        ])
         self.dnn_kernels = [self.add_weight(name='kernel' + str(i),
                                             shape=(
                                                 hidden_units[i], hidden_units[i + 1]),
@@ -273,20 +284,21 @@ class TransformerDin(keras.layers.Layer):
         att_input = tf.concat(
             [queries, result, queries - result, queries * result], axis=-1)
 
-        att_out = att_input
+        # att_out = att_input
         #
-        for i in range(len(self.hidden_units)):
-            fc = tf.nn.bias_add(tf.tensordot(
-                att_out, self.dnn_kernels[i], axes=(-1, 0)), self.dnn_bias[i])
-
-            if self.use_bn:
-                fc = self.bn_layers[i](fc, training=training)
-
-            fc = self.activation_layers[i](fc)
-
-            fc = self.dropout_layers[i](fc, training=training)
-            att_out = fc
-
+        # for i in range(len(self.hidden_units)):
+        #
+        #     fc = tf.nn.bias_add(tf.tensordot(
+        #         att_out, self.dnn_kernels[i], axes=(-1, 0)), self.dnn_bias[i])
+        #
+        #     if self.use_bn:
+        #         fc = self.bn_layers[i](fc, training=training)
+        #
+        #     fc = self.activation_layers[i](fc)
+        #
+        #     fc = self.dropout_layers[i](fc, training=training)
+        #     att_out = fc
+        att_out = self.dnn_layers(att_input)
         attention_score = tf.nn.bias_add(tf.tensordot(
             att_out, self.atten_kernel, axes=(-1, 0)), self.atten_bias)
 
